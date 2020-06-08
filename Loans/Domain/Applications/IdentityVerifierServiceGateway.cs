@@ -15,7 +15,7 @@ namespace Loans.Domain.Applications
         {
             Connect();
             var isValidIdentity = CallService(applicantName, applicantAge, applicantAddress);
-            LastCheckTime = DateTime.Now;
+            LastCheckTime = GetCurrentTime();
             Disconnect();
 
             return isValidIdentity;
@@ -28,7 +28,7 @@ namespace Loans.Domain.Applications
         }
 
 
-        private bool CallService(string applicantName, int applicantAge, string applicantAddress)
+        protected virtual bool CallService(string applicantName, int applicantAge, string applicantAddress)
         {
             // Make call to external service, interpret the response, and return result
 
@@ -40,7 +40,10 @@ namespace Loans.Domain.Applications
             // Close connection to external service
         }
 
-
+        protected virtual DateTime GetCurrentTime()
+        {
+            return DateTime.Now;
+        }
 
         public void Validate(string applicantName, int applicantAge, string applicantAddress, out bool isValid)
         {

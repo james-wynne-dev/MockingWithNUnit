@@ -2,6 +2,7 @@
 using Loans.Domain.Applications;
 using NUnit.Framework;
 using Moq;
+using Moq.Protected;
 
 namespace Loans.Tests
 {
@@ -135,6 +136,99 @@ namespace Loans.Tests
                 It.IsAny<string>(),
                 "133 Pluralsight Drive, Draper, Utah"),
                 Times.AtLeastOnce);
+        }
+
+        [Test]
+        public void AcceptStrict()
+        {
+            LoanProduct product = new LoanProduct(99, "Loan", 5.25m);
+            LoanAmount amount = new LoanAmount("USD", 200_000);
+            var application = new LoanApplication(42, product, amount, "Sarah", 25, "133 Pluralsight Drive, Draper, Utah", 65_000);
+
+            // Setting up STRICT mock where every method that is accessed in the test is explicitly setup by us
+            var mockIdentityVerifier = new Mock<IIdentityVerifier>(MockBehavior.Strict);
+            mockIdentityVerifier.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<int>(), "133 Pluralsight Drive, Draper, Utah")).Returns(true);
+
+            mockIdentityVerifier.Setup(x => x.Initialize());
+
+            var mockCreditScorer = new Mock<ICreditScorer>();
+            mockCreditScorer.Setup(x => x.Score).Returns(300);
+
+            mockCreditScorer.Setup(x => x.ScoreResult.ScoreValue.Score).Returns(300);
+
+            var sut = new LoanApplicationProcessor(mockIdentityVerifier.Object, mockCreditScorer.Object);
+
+            sut.Process(application);
+
+            Assert.That(application.GetIsAccepted(), Is.True);
+        }
+
+        [Test]
+        public void DeclineWhenError()
+        {
+            LoanProduct product = new LoanProduct(99, "Loan", 5.25m);
+            LoanAmount amount = new LoanAmount("USD", 200_000);
+            var application = new LoanApplication(42, product, amount, "Sarah", 25, "133 Pluralsight Drive, Draper, Utah", 65_000);
+
+            var mockIdentityVerifier = new Mock<IIdentityVerifier>();
+            mockIdentityVerifier.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<int>(), "133 Pluralsight Drive, Draper, Utah")).Returns(true);
+
+            var mockCreditScorer = new Mock<ICreditScorer>();
+            mockCreditScorer.Setup(x => x.ScoreResult.ScoreValue.Score).Returns(300);
+            // Setup method to throw exception
+            mockCreditScorer.Setup(x => x.CalculateScore(It.IsAny<string>(), It.IsAny<string>()))
+                //.Throws<InvalidOperationException>();
+                .Throws(new InvalidOperationException("Some Text"));
+
+            var sut = new LoanApplicationProcessor(mockIdentityVerifier.Object, mockCreditScorer.Object);
+
+            sut.Process(application);
+
+            Assert.That(application.GetIsAccepted(), Is.False);
+        }
+
+        [Test]
+        public void AcceptUsingPartialMock()
+        {
+            LoanProduct product = new LoanProduct(99, "Loan", 5.25m);
+            LoanAmount amount = new LoanAmount("USD", 200_000);
+            var application = new LoanApplication(42, product, amount, "Sarah", 25, "133 Pluralsight Drive, Draper, Utah", 65_000);
+
+
+            // We are using the actual class rather than the interface so the test can use real methods
+            // We can also mock certain methods of the actual class, this is useful if the method interacts with external resource
+            var mockIdentityVerifier = new Mock<IdentityVerifierServiceGateway>();
+            // Had to make method public and virtual
+
+            // This setup works for public virtual methods
+            //mockIdentityVerifier.Setup(x => x.CallService("Sarah", 25, "133 Pluralsight Drive, Draper, Utah")).Returns(true);
+            // For protected methods
+            mockIdentityVerifier.Protected().Setup<bool>("CallService", "Sarah", 25, "133 Pluralsight Drive, Draper, Utah").Returns(true);
+
+            var expectedTime = new DateTime(2000, 1, 1);
+
+            // This setup works for public virtual methods
+            //mockIdentityVerifier.Setup(x => x.GetCurrentTime())
+            //    .Returns(expectedTime);
+            // For protected method
+            mockIdentityVerifier.Protected().Setup<DateTime>("GetCurrentTime")
+                .Returns(expectedTime);
+
+            // Note: to get intelisense for when mocking protected methods we need to define an interface and chain As method extension
+            // this makes it possible to use a lamba extension
+            // You can also refactor your code to extract methods
+
+            var mockCreditScorer = new Mock<ICreditScorer>();
+            mockCreditScorer.Setup(x => x.ScoreResult.ScoreValue.Score).Returns(300);
+
+
+
+            var sut = new LoanApplicationProcessor(mockIdentityVerifier.Object, mockCreditScorer.Object);
+
+            sut.Process(application);
+
+            Assert.That(application.GetIsAccepted(), Is.True);
+            Assert.That(mockIdentityVerifier.Object.LastCheckTime, Is.EqualTo(expectedTime));
         }
     } 
     

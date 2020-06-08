@@ -49,8 +49,16 @@ namespace Loans.Domain.Applications
             }
 
 
-            _creditScorer.CalculateScore(application.GetApplicantName(),
-                                         application.GetApplicantAddress());
+            try
+            {
+                _creditScorer.CalculateScore(application.GetApplicantName(),
+                                     application.GetApplicantAddress());
+            }
+            catch
+            {
+                application.Decline();
+                return;
+            }
 
             _creditScorer.Count++;
 
