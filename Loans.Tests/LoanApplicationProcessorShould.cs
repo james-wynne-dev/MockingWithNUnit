@@ -31,16 +31,39 @@ namespace Loans.Tests
             LoanAmount amount = new LoanAmount("USD", 200_000);
             var application = new LoanApplication(42, product, amount, "Sarah", 25, "133 Pluralsight Drive, Draper, Utah", 65_000);
 
+            // setting up a mock method return
             var mockIdentityVerifier = new Mock<IIdentityVerifier>();
             mockIdentityVerifier.Setup(x => x.Validate(It.IsAny<string>(), It.IsAny<int>(), "133 Pluralsight Drive, Draper, Utah")).Returns(true);
 
+            // setting up a mock property
             var mockCreditScorer = new Mock<ICreditScorer>();
+            mockCreditScorer.Setup(x => x.Score).Returns(300);
+
+            // manully setting up a mock property hierarchy
+            // CreditScorer -> ScoreResult -> ScoreValue
+            //var mockScoreValue = new Mock<ScoreValue>();
+            //mockScoreValue.Setup(x => x.Score).Returns(300);
+            //var mockScoreResult = new Mock<ScoreResult>();
+            //mockScoreResult.Setup(x => x.ScoreValue).Returns(mockScoreValue.Object);
+            //mockCreditScorer.Setup(x => x.ScoreResult).Returns(mockScoreResult.Object);
+
+            // Getting moq to create the hierarchy of object
+            // Moq creates each of the objects in the hierarchy, all the properties in hierarchy must be virtual
+            mockCreditScorer.Setup(x => x.ScoreResult.ScoreValue.Score).Returns(300);
+
+            // Tracking changes to properties
+            // Can provide an initial value with a second argument
+            mockCreditScorer.SetupProperty(x => x.Count);
+            // Can use the below to setup all properties but it will overwrite any previous setup, so use it first!
+            //mockCreditScorer.SetupAllProperties();
 
             var sut = new LoanApplicationProcessor(mockIdentityVerifier.Object, mockCreditScorer.Object);
 
             sut.Process(application);
 
             Assert.That(application.GetIsAccepted(), Is.True);
+
+            Assert.That(mockCreditScorer.Object.Count, Is.EqualTo(1));
         }
 
         [Test]

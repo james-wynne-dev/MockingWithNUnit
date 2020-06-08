@@ -49,14 +49,16 @@ namespace Loans.Domain.Applications
             }
 
 
-            //_creditScorer.CalculateScore(application.GetApplicantName(), 
-            //                             application.GetApplicantAddress());
+            _creditScorer.CalculateScore(application.GetApplicantName(),
+                                         application.GetApplicantAddress());
 
-            //if (_creditScorer.Score < MinimumCreditScore)
-            //{
-            //    application.Decline();
-            //    return;
-            //}
+            _creditScorer.Count++;
+
+            if (_creditScorer.ScoreResult.ScoreValue.Score < MinimumCreditScore)
+            {
+                application.Decline();
+                return;
+            }
 
             application.Accept();
         }
